@@ -37,6 +37,22 @@ int agregar_superviviente(Refugio *r) {
     return 1;
 }
 
+    void lista_supervivientes(const Refugio *r) {
+        if (r->n == 0) {
+            printf("No hay supervivientes.\n");
+            return;
+        }
+
+        for (int i = 0; i < r->n; i++) {    
+            printf("%d) %s | %d | %s | %d\n", 
+                i +1, 
+                r->lista [i].nombre,
+                r->lista [i].edad, 
+                r->lista [i].habilidad,
+                r->lista [i].salud);
+        }
+    }
+
 
 int main (void) {
     Refugio refugio;
@@ -46,10 +62,13 @@ int main (void) {
     refugio.n  = 0;
     refugio.capacidad = 0;
 
+    /* Preuba 1:Listar con lista vacia (no debe de fallar) */
+    lista_supervivientes(&refugio);
+
     /*Pruebas manual: registrar 3 supervivientes */
     agregar_superviviente(&refugio);
     agregar_superviviente(&refugio);
-    agregar_superviviente(&refugio);
+    lista_supervivientes(&refugio);
 
     printf("Refugio Inicializado: n=%d, capacidad=%d\n", refugio.n, refugio.capacidad);
 

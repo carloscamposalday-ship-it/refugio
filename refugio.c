@@ -53,6 +53,7 @@ void mostrar_recursos(const Refugio *r);
 int  modificar_recurso(Refugio *r, int tipo, int cantidad);
 int  registrar_evento(Refugio *r, const char *texto);
 void mostrar_historial(const Refugio *r);
+int dar_de_baja(Refugio *r, const char *nombre);
 
 /* ============================================================
  * Utilidad: limpiar buffer
@@ -223,6 +224,52 @@ void mostrar_historial(const Refugio *r) {
 }
 
 /* ============================================================
+ * HU-07: Dar de baja a un superviviente por nombre
+ * ============================================================ */
+int dar_de_baja(Refugio *r, const char *nombre) {
+    /* 1) Buscar por nombre */
+    int idx = -1;
+    for (int i = 0; i < r->n; i++) {
+        if (strcmp(r->lista[i].nombre, nombre) == 0) {
+            idx = i;
+            break;
+        }
+    }
+
+    /* 2) Si no existe, avisar y no modificar nada */
+    if (idx < 0) {
+        printf("No se encontro a '%s'.\n", nombre);
+        return 0;
+    }
+
+    /* 3) Cerrar el hueco desplazando los elementos siguientes */
+    for (int i = idx; i < r->n - 1; i++) {
+        r->lista[i] = r->lista[i + 1];
+    }
+    r->n--;
+
+    /* 4) Reducción opcional de memoria (si falla, conserva el bloque) */
+    if (r->capacidad > CAP_INICIAL && r->n < r->capacidad / 4) {
+        int nueva_cap = r->capacidad / 2;
+        Superviviente *tmp = realloc(r->lista,
+                                     (size_t)nueva_cap * sizeof(Superviviente));
+        if (tmp != NULL) {
+            r->lista = tmp;
+            r->capacidad = nueva_cap;
+        }
+        /* si tmp == NULL, no pasa nada: se conserva el bloque anterior */
+    }
+
+    /* 5) Registrar el evento en el historial */
+    char texto[MAX_DESC + 1];
+    snprintf(texto, sizeof(texto), "Baja de superviviente: %s", nombre);
+    registrar_evento(r, texto);
+
+    printf("Superviviente '%s' dado de baja.\n", nombre);
+    return 1;
+}
+
+/* ============================================================
  * main
  * ============================================================ */
 int main(void) {
@@ -273,6 +320,32 @@ int main(void) {
     printf("\n--- Probando HU-06 ---\n");
     registrar_evento(&refugio, "Inicio de la partida");
     registrar_evento(&refugio, "Se registro un superviviente");
+    mostrar_historial(&refugio);
+
+        /* HU-07: probar dar de baja en los 4 casos */
+    printf("\n--- Probando HU-07 ---\n");
+
+    /* Caso 1: dar de baja al PRIMERO (Ana) */
+    printf("\n[Caso 1] Baja del PRIMERO (Ana):\n");
+    dar_de_baja(&refugio, "Ana");
+    listar_supervivientes(&refugio);
+
+    /* Caso 2: dar de baja a uno INTERMEDIO (Beto) */
+    printf("\n[Caso 2] Baja del INTERMEDIO (Beto):\n");
+    dar_de_baja(&refugio, "Beto");
+    listar_supervivientes(&refugio);
+
+    /* Caso 3: dar de baja al ÚLTIMO (Carla) */
+    printf("\n[Caso 3] Baja del ULTIMO (Carla):\n");
+    dar_de_baja(&refugio, "Carla");
+    listar_supervivientes(&refugio);
+
+    /* Caso 4: dar de baja al ÚNICO (ya no hay, debe fallar) */
+    printf("\n[Caso 4] Baja del UNICO (no existe):\n");
+    dar_de_baja(&refugio, "Nadie");
+    listar_supervivientes(&refugio);
+
+    /* Mostrar el historial con las bajas registradas */
     mostrar_historial(&refugio);
 
     /* HU-13 (parcial): liberar antes de salir */

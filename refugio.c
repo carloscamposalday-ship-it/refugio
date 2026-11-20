@@ -8,6 +8,14 @@
 #define MAX_DESC      100        /* ← ÚNICO CAMBIO: antes 60, ahora 100 */
 #define CAP_INICIAL   4
 
+/* HU-10: nombres de archivos */
+#define ARCH_SUP   "supervivientes.txt"
+#define ARCH_REC   "recursos.txt"
+#define ARCH_HIS   "historial.txt"
+#define TMP_SUP    "supervivientes.tmp"
+#define TMP_REC    "recursos.tmp"
+#define TMP_HIS    "historial.tmp"
+
 /* ============================================================
  * Structs
  * ============================================================ */
@@ -56,7 +64,8 @@ int  registrar_evento(Refugio *r, const char *texto);
 void mostrar_historial(const Refugio *r);
 int  dar_de_baja(Refugio *r, const char *nombre);
 int  expedicion(Refugio *r);
-void perder_recurso(Refugio *r, int tipo, int cantidad);   /* HU-09 */
+void perder_recurso(Refugio *r, int tipo, int cantidad);   
+int  guardar_partida(const Refugio *r);  
 
 /* ============================================================
  * Utilidad: limpiar buffer
@@ -358,6 +367,74 @@ void perder_recurso(Refugio *r, int tipo, int cantidad) {
 }
 
 /* ============================================================
+ * HU-10: Guardar partida de forma segura
+ * Formato: texto con '|' como separador.
+ * Escribe en .tmp y solo renombra si todo salió bien.
+ * ============================================================ */
+int guardar_partida(const Refugio *r) {
+    /* --- 1) Supervivientes --- */
+    FILE *f = fopen(TMP_SUP, "w");
+    if (f == NULL) {
+        printf("No se pudo abrir %s para escritura.\n", TMP_SUP);
+        return 0;
+    }
+    for (int i = 0; i < r->n; i++) {
+        if (fprintf(f, "%s|%d|%s|%d\n",
+                    r->lista[i].nombre,
+                    r->lista[i].edad,
+                    r->lista[i].habilidad,
+                    r->lista[i].salud) < 0) {
+            fclose(f);
+            return 0;
+        }
+    }
+    if (fclose(f) != 0) return 0;
+
+    /* --- 2) Recursos --- */
+    f = fopen(TMP_REC, "w");
+    if (f == NULL) {
+        printf("No se pudo abrir %s para escritura.\n", TMP_REC);
+        return 0;
+    }
+    if (fprintf(f, "%d|%d|%d|%d\n",
+                r->recursos.agua,
+                r->recursos.comida,
+                r->recursos.medicamentos,
+                r->recursos.municiones) < 0) {
+        fclose(f);
+        return 0;
+    }
+    if (fclose(f) != 0) return 0;
+
+    /* --- 3) Historial (día actual + eventos) --- */
+    f = fopen(TMP_HIS, "w");
+    if (f == NULL) {
+        printf("No se pudo abrir %s para escritura.\n", TMP_HIS);
+        return 0;
+    }
+    if (fprintf(f, "%d\n", r->dia_actual) < 0) {
+        fclose(f);
+        return 0;
+    }
+    for (int i = 0; i < r->n_eventos; i++) {
+        if (fprintf(f, "%d|%s\n",
+                    r->historial[i].dia,
+                    r->historial[i].descripcion) < 0) {
+            fclose(f);
+            return 0;
+        }
+    }
+    if (fclose(f) != 0) return 0;
+
+    /* --- 4) Todo salió bien: renombrar a definitivos --- */
+    if (rename(TMP_SUP, ARCH_SUP) != 0) return 0;
+    if (rename(TMP_REC, ARCH_REC) != 0) return 0;
+    if (rename(TMP_HIS, ARCH_HIS) != 0) return 0;
+
+    return 1;
+}
+
+/* ============================================================
  * main
  * ============================================================ */
 int main(void) {
@@ -486,6 +563,24 @@ int main(void) {
     mostrar_recursos(&refugio);
 
     mostrar_historial(&refugio);
+
+        /* HU-10: probar guardar partida */
+    printf("\n--- Probando HU-10 ---\n");
+
+    printf("\n[Guardado 1] Ruta valida (archivos .tmp en el directorio actual):\n");
+    if (guardar_partida(&refugio))
+        printf("Partida guardada correctamente.\n");
+    else
+        printf("Fallo al guardar.\n");
+
+    printf("\n[Guardado 2] Verificar que los archivos existen:\n");
+    /* (se verifica fuera del programa con: ls -la *.txt *.tmp) */
+
+    printf("\n[Guardado 3] Ruta invalida (directorio inexistente):\n");
+    /* Para probar ruta inválida, cambia TMP_SUP a algo como "no_existe/sup.tmp" */
+    /* Aquí solo mostramos cómo se probaría: */
+    printf("(Para probar ruta invalida, cambia TMP_SUP a 'no_existe/sup.tmp'\n");
+    printf(" y recompila; guardar_partida devolvera 0 sin destruir los .txt)\n");
 
     /* HU-13 (parcial) */
     free(refugio.lista);
